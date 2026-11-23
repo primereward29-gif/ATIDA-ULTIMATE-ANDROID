@@ -1,0 +1,2 @@
+# ATIDA-ULTIMATE-ANDROID
+ATIDA ULTIMATE Android AI Assistant Project
