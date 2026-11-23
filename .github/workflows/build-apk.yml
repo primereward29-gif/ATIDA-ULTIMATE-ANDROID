@@ -1,0 +1,57 @@
+
+name: Build ATIDA ULTIMATE 6.1 APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and extract ATIDA ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" -print -quit)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No ZIP file found in repository."
+            exit 1
+          fi
+          unzip -q "$ZIP_FILE" -d atida_source
+          PROJECT_DIR=$(dirname "$(find atida_source -name settings.gradle.kts -type f -print -quit)")
+          if [ "$PROJECT_DIR" = "atida_source" ] || [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
+            echo "Android Gradle project not found."
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: |
+          cd "$PROJECT_DIR"
+          gradle --no-daemon assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/ATIDA-ULTIMATE-6.1-debug.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ATIDA-ULTIMATE-6.1-APK
+          path: ATIDA-ULTIMATE-6.1-debug.apk
+          if-no-files-found: error
