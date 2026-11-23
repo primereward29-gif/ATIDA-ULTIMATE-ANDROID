@@ -17,31 +17,72 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find and extract ATIDA ZIP
+      - name: Extract ATIDA ZIP
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "No ZIP file found in repository."
+            echo "No ATIDA ZIP file found."
             exit 1
           fi
           unzip -q "$ZIP_FILE" -d atida_source
           PROJECT_DIR=$(dirname "$(find atida_source -name settings.gradle.kts -type f -print -quit)")
-          if [ "$PROJECT_DIR" = "atida_source" ] || [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
-            echo "Android Gradle project not found."
+          if [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
+            echo "Android project not found."
             exit 1
           fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.9
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Fix Java and Kotlin target compatibility
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          project = Path(os.environ["PROJECT_DIR"])
+          build_file = project / "app" / "build.gradle.kts"
+          text = build_file.read_text()
+
+          text = text.replace("VERSION_1_8", "VERSION_17")
+          text = text.replace('jvmTarget = "1.8"', 'jvmTarget = "17"')
+
+          if "compileOptions" not in text:
+              block = """
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              """
+              pos = text.find("android {")
+              if pos == -1:
+                  raise SystemExit("Could not find android block.")
+              depth = 0
+              end = None
+              for i in range(text.find("{", pos), len(text)):
+                  if text[i] == "{":
+                      depth += 1
+                  elif text[i] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          end = i
+                          break
+              if end is None:
+                  raise SystemExit("Could not locate end of android block.")
+              text = text[:end] + block + text[end:]
+
+          build_file.write_text(text)
+          print("Java compatibility set to version 17.")
+          PY
 
       - name: Build debug APK
         run: |
