@@ -19,17 +19,22 @@ jobs:
 
       - name: Extract ATIDA ZIP
         run: |
-          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" -print -quit)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "No ATIDA ZIP file found."
+          ZIP_FILE="./ATIDA_ULTIMATE_6.1_ENHANCED_LOCAL_SERVER_FIXED.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ATIDA ZIP file not found: $ZIP_FILE"
             exit 1
           fi
+
           unzip -q "$ZIP_FILE" -d atida_source
+
           PROJECT_DIR=$(dirname "$(find atida_source -name settings.gradle.kts -type f -print -quit)")
-          if [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
+
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
             echo "Android project not found."
             exit 1
           fi
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Set up JDK 17
@@ -51,6 +56,7 @@ jobs:
 
           project = Path(os.environ["PROJECT_DIR"])
           build_file = project / "app" / "build.gradle.kts"
+
           text = build_file.read_text()
 
           text = text.replace("VERSION_1_8", "VERSION_17")
@@ -63,11 +69,14 @@ jobs:
                   targetCompatibility = JavaVersion.VERSION_17
               }
               """
+
               pos = text.find("android {")
               if pos == -1:
                   raise SystemExit("Could not find android block.")
+
               depth = 0
               end = None
+
               for i in range(text.find("{", pos), len(text)):
                   if text[i] == "{":
                       depth += 1
@@ -76,8 +85,10 @@ jobs:
                       if depth == 0:
                           end = i
                           break
+
               if end is None:
                   raise SystemExit("Could not locate end of android block.")
+
               text = text[:end] + block + text[end:]
 
           build_file.write_text(text)
