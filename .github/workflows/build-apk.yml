@@ -19,7 +19,7 @@ jobs:
 
       - name: Extract ATIDA ZIP
         run: |
-          ZIP_FILE="./ATIDA_ULTIMATE_6.1_SERVER_FIXED_KOTLIN_PATCH.zip"
+          ZIP_FILE="./ATIDA_ULTIMATE_6.1_SERVER_FIXED_KOTLIN_PATCH (2).zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "ATIDA ZIP file not found: $ZIP_FILE"
